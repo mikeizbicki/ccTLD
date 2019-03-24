@@ -15,8 +15,8 @@ SPIDER_MODULES = ['cu.spiders']
 NEWSPIDER_MODULE = 'cu.spiders'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = 'cu (+http://www.yourdomain.com)'
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0'
+USER_AGENT = 'cu (+http://www.yourdomain.com)'
+#USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
@@ -30,6 +30,7 @@ REACTOR_THREADPOOL_MAXSIZE = 20
 COOKIES_ENABLED = False
 DOWNLOAD_TIMEOUT = 15
 DEPTH_PRIORITY = 1
+#LOG_FILE='scrapy.log'
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://doc.scrapy.org/en/latest/topics/settings.html#download-delay
@@ -91,7 +92,7 @@ DEPTH_PRIORITY = 1
 # Enable and configure HTTP caching (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings
 HTTPCACHE_ENABLED = True
-HTTPCACHE_POLICY = 'scrapy.extensions.httpcache.RFC2616Policy'
+#HTTPCACHE_POLICY = 'scrapy.extensions.httpcache.RFC2616Policy'
 #HTTPCACHE_EXPIRATION_SECS = 0
 HTTPCACHE_DIR = 'httpcache'
 #HTTPCACHE_IGNORE_HTTP_CODES = []
