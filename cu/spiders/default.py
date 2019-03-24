@@ -6,7 +6,8 @@ from scrapy.linkextractors import LinkExtractor
 class DefaultSpider(CrawlSpider):
     name = 'default'
     allowed_domains = ['cu']
-    start_urls = ['http://www.cuba.cu/']
+    #start_urls = ['http://www.cuba.cu/']
+    start_urls = ['http://www.dprkportal.kp']
 
     rules = [
         Rule(
@@ -20,4 +21,5 @@ class DefaultSpider(CrawlSpider):
         ]
 
     def parse_url(self, response):
-        print('url=',response.url)
+        pass
+        #print('url=',response.url)
