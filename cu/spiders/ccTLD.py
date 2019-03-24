@@ -1,11 +1,9 @@
 import scrapy
-import urlextract
 import re
 import logging
 from bs4 import BeautifulSoup
-import newspaper
 import goose3
-import langdetect 
+import langdetect
 from urllib.parse import urlparse
 
 #ccTLDs=['ar','bo','cl','co','cr','cu','do','ec','sv','gt','hn','mx','ni','pa','py','pe','pr','es','uy','ve','gq']
@@ -18,7 +16,7 @@ class body(scrapy.Spider):
         self.g=goose3.Goose()
         self.language=language
 
-        # get ccTLDs from `-a` cmd line arg 
+        # get ccTLDs from `-a` cmd line arg
         if cc is None:
             self.allowed_domains = ccTLDs
         else:
