@@ -26,7 +26,7 @@ CONCURRENT_REQUESTS = 100
 
 # See: http://doc.scrapy.org/en/latest/topics/broad-crawls.html
 REACTOR_THREADPOOL_MAXSIZE = 20
-#LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'INFO'
 COOKIES_ENABLED = False
 DOWNLOAD_TIMEOUT = 15
 DEPTH_PRIORITY = 1
