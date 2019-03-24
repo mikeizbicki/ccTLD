@@ -8,11 +8,10 @@ import goose3
 import langdetect 
 from urllib.parse import urlparse
 
-
 #ccTLDs=['ar','bo','cl','co','cr','cu','do','ec','sv','gt','hn','mx','ni','pa','py','pe','pr','es','uy','ve','gq']
 
 class body(scrapy.Spider):
-    name = "body"
+    name = 'ccTLD'
 
     def __init__(self, cc=None, language='es', **kwargs):
 
@@ -104,7 +103,6 @@ class body(scrapy.Spider):
                     #print('counts=',counts)
                     #print('priorityList=',priorityList)
 
-                    print()
                     for tld in self.allowed_domains:
-                        print(tld+': %10d %10d %10d %10d'%(responses[tld],urls[tld],counts[tld],priorityList[tld]))
+                        print('stats ('+tld+'): %10d %10d %10d %10d'%(responses[tld],urls[tld],counts[tld],priorityList[tld]))
 
