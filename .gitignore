@@ -1,5 +1,6 @@
 .scrapy
 crawls
+slurm
 *.pyc
 *.swp
 *.swo

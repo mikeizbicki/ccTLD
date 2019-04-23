@@ -6,12 +6,10 @@ import goose3
 import langdetect
 from urllib.parse import urlparse
 
-#ccTLDs=['ar','bo','cl','co','cr','cu','do','ec','sv','gt','hn','mx','ni','pa','py','pe','pr','es','uy','ve','gq']
-
 class body(scrapy.Spider):
     name = 'ccTLD'
 
-    def __init__(self, cc=None, language='es', **kwargs):
+    def __init__(self, cc=None, seedurls='seedurls', language='es', **kwargs):
 
         self.g=goose3.Goose()
         self.language=language
@@ -25,10 +23,12 @@ class body(scrapy.Spider):
         # load seed urls
         self.start_urls=[]
         for domain in self.allowed_domains:
-            with open('seedurls/'+domain) as f:
+            with open(seedurls+'/'+domain) as f:
                 line=f.readline()
                 while line:
-                    self.start_urls.append(line)
+                    parsed_uri = urlparse(line)
+                    url = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
+                    self.start_urls.append(url)
                     line=f.readline()
 
         # recursively init

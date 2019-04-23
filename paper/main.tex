@@ -1,0 +1,52 @@
+\documentclass[10pt]{article}
+
+\usepackage[margin=0.75in]{geometry}
+%\usepackage{geometry}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{rotating}
+\usepackage{xcolor}
+\usepackage[utf8]{inputenc}
+\usepackage[greek,vietnamese,russian,arabic,english]{babel}
+\usepackage{CJKutf8}
+\usepackage{bm}
+\usepackage{wrapfig}
+
+\usepackage{natbib}
+\setlength{\bibsep}{1.0pt}
+
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks   = true, %Colours links instead of ugly boxes
+  urlcolor     = black, %Colour for external hyperlinks
+  linkcolor    = blue, %Colour of internal links
+  citecolor    = blue  %Colour of citations
+}
+
+\usepackage{kotex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\citet{salloum2011dialectal,salloum2013dialectal} introduce rules based systems for converting dialectical arabic into standard arabic.
+They propose a method for measuring the quality of their results by measuring how well it improves the BLEU score of a subsequent translation into English.
+
+\citet{mager2018challenges} surveys the little work that has been done to study indigenous Latin American languages.
+Studying Spanish dialects may help us improve our understanding of these languages because of the strong and localized influences.
+
+\citet{costa2018neural} studies translation between European Portuguese to Brazilian Portuguese.
+They claim this is the first translation study between language dialects using deep learning,
+and provide references to systems using older techniques.
+
+\small
+\bibliographystyle{plain}
+%\bibliography{main,bib/bib/geo-images}
+\bibliography{main}
+
+\end{document}
