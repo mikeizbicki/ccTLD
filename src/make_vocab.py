@@ -15,10 +15,11 @@ import re
 import datetime
 import pickle
 from urlparse import urlparse
+import gzip
 
 vocab=Counter()
 domains=Counter()
-with open(args.filename,'r') as f:
+with gzip.open(args.filename,'r') as f:
     count=0
     for line in f:
         count+=1

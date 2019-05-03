@@ -34,6 +34,10 @@
 
 \begin{document}
 
+\citet{conneau2017word} propose word embeddings without parallel data,
+and \citet{lample2017unsupervised} use these embeddings to perform fully unsupervised language translation.
+We propose using the $\ell1$ \fixme{oblique?} procrustes problem \citep{trendafilov2003ell,trendafilov2004ell}.
+
 \citet{salloum2011dialectal,salloum2013dialectal} introduce rules based systems for converting dialectical arabic into standard arabic.
 They propose a method for measuring the quality of their results by measuring how well it improves the BLEU score of a subsequent translation into English.
 
@@ -44,9 +48,27 @@ Studying Spanish dialects may help us improve our understanding of these languag
 They claim this is the first translation study between language dialects using deep learning,
 and provide references to systems using older techniques.
 
+\citet{xu2012paraphrasing} develop a method for translating from Shakespearean English into modern English,
+but their method requires parallel text corpora.
+Parallel corpora for Spanish dialects exist only at the most course level.
+For example, Harry Potter has been translated into a Castilian dialect and Latin American dialect.
+
+\citet{potthast2016author} survey author identification methods and methods for obfuscating author identity.
+The dialect translation task can be seen as an obfuscation task.
+Discusses the PAN2016 workshop on author identification/obfuscation.
+
+\citet{zissman1996automatic} build a system for differentiating between Cuban and Peruvian written dialects.
+\citet{yanguas1998incorporating;caballero2009multidialectal} study spoken dialectical variations.
+
+VarDial Workshop
+
+\citet{zbib2012machine} create parallel corpora for Egyptian-Arabic to English and Levantine-Arabic to English,
+and study how dialectical differences in Arabic can affect Arabic to English translation.
+\fixme{View citations on google scholar for more Arabic.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \small
 \bibliographystyle{plain}
-%\bibliography{main,bib/bib/geo-images}
 \bibliography{main}
 
 \end{document}
