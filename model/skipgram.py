@@ -48,6 +48,25 @@ def model_fn_predict(
         embeddings_projector = tf.ones([args.num_embeddings,num_ccTLD])
     embeddings_ccTLD = tf.tensordot(embeddings,embeddings_projector,[[2],[0]])
 
+    with tf.variable_scope('word_counter'):
+        counter_words_ccTLD=tf.get_variable(
+            name='counter_words_ccTLD',
+            initializer=tf.zeros([args.vocab_size,len(common.ccTLDs)],dtype=tf.int32),
+            #initializer=tf.zeros([args.vocab_size],dtype=tf.int32),
+            dtype=tf.int32,
+            trainable=False,
+            #collections=[tf.GraphKeys.LOCAL_VARIABLES],
+            use_resource=True,
+            )
+        counter_total=tf.get_variable(
+            name='counter_total',
+            initializer=1,
+            dtype=tf.int32,
+            trainable=False,
+            #collections=[tf.GraphKeys.LOCAL_VARIABLES],
+            use_resource=True,
+            )
+
     # create word vectors
     wordvecs_raw=tf.gather(
         embeddings,
@@ -66,7 +85,7 @@ def model_fn_predict(
         )
 
     # create word vectors
-    ccTLD_source=common.ccTLDs.index('us')
+    ccTLD_source=common.ccTLDs.index('es')
     wordvecs_source=wordvecs[:,:,ccTLD_source]
 
     # find similar vectors
@@ -100,18 +119,24 @@ def model_fn_predict(
     # create translation
     res_translation=[]
     res_scores=[]
+    res_word_count=[]
     for ccTLD in range(0,len(common.ccTLDs)):
         cosine_similarities=tf.tensordot(
             tf.nn.l2_normalize(wordvecs_source,axis=1),
             tf.nn.l2_normalize(wordvecs_all[:,:,ccTLD],axis=1),
             axes=[[1],[1]],
             )
-        vals,indices=tf.nn.top_k(cosine_similarities,k=5)
+        vals,indices=tf.nn.top_k(cosine_similarities,k=4)
         predictions=tf.gather(vocab_top,indices)
         res_translation.append(predictions)
         res_scores.append(vals)
+        res_word_count.append(tf.gather(counter_words_ccTLD[:,ccTLD],indices))
+        #res_word_count.append(tf.tile(tf.reshape(counter_total,[1,1]),tf.shape(res_scores[0])))
+        #print('res_scores=',res_scores)
+        #print('res_word_count=',res_word_count)
     translation=tf.stack(res_translation,axis=2)
     translation_scores=tf.stack(res_scores,axis=2)
+    translation_word_count=tf.stack(res_word_count,axis=2)
 
     # return
     if mode==tf.estimator.ModeKeys.PREDICT:
@@ -123,6 +148,7 @@ def model_fn_predict(
                 'similar':similar,
                 'translation':translation,
                 'translation_scores':translation_scores,
+                'translation_word_count':translation_word_count,
                 },
             )
 
@@ -178,6 +204,8 @@ def input_fn_train(args):
             cycle_length=len(filenames),
             block_length=1
             )
+        #dataset = dataset.shuffle(65536)
+        dataset = dataset.shuffle(args.shuffle_size_1)
 
         # count the number of lines processed
         num_lines=tf.get_variable(
@@ -185,7 +213,7 @@ def input_fn_train(args):
             initializer=0,
             dtype=tf.int32,
             trainable=False,
-            collections=[tf.GraphKeys.LOCAL_VARIABLES],
+            #collections=[tf.GraphKeys.LOCAL_VARIABLES],
             use_resource=True,
             )
         def update_num_lines(x):
@@ -193,17 +221,65 @@ def input_fn_train(args):
             with tf.control_dependencies([update_op]):
                 return x
         dataset = dataset.map(lambda x,y: (update_num_lines(x),y))
-        tf.summary.scalar('num_lines',num_lines)
+        tf.summary.scalar(
+            'num_lines',
+            num_lines,
+            family='progress',
+            )
 
-        # parse the json formatted input lines
+        # convert json formatted input lines into lists of words
         dataset = dataset.map(lambda x,y: (tf.py_func(json2text,[x],tf.string),y))
         dataset = dataset.flat_map(lambda x,y: tf.data.Dataset.zip((
             tf.data.Dataset.from_tensor_slices(tf.string_split([x],'.?!').values),
             tf.data.Dataset.from_tensors(y).repeat(),
             )))
+        dataset = dataset.shuffle(args.shuffle_size_2)
         dataset = dataset.map(lambda x,y: (tf.string_split([x],' ').values,y))
         dataset = dataset.map(lambda x,y: (vocab_index.lookup(x),y))
 
+        # count words
+        with tf.variable_scope('word_counter'):
+            counter_words_ccTLD=tf.get_variable(
+                name='counter_words_ccTLD',
+                initializer=tf.zeros([args.vocab_size,len(common.ccTLDs)],dtype=tf.int32),
+                #initializer=tf.zeros([args.vocab_size],dtype=tf.int32),
+                dtype=tf.int32,
+                trainable=False,
+                #collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                use_resource=True,
+                )
+            #counter_words=counter_words_ccTLD
+            counter_words=tf.reduce_sum(counter_words_ccTLD,axis=1)
+            for i in [1,10,100,1000,10000]:
+                tf.summary.scalar(
+                    'words_seen_'+str(i),
+                    tf.count_nonzero(tf.maximum(0,counter_words-i+1)),
+                    family='progress',
+                    )
+            for i in range(len(common.ccTLDs)):
+                tf.summary.scalar(
+                    'words_seen_1_'+common.ccTLDs[i],
+                    tf.count_nonzero(counter_words_ccTLD[:,i]),
+                    family='progress_ccTLD',
+                    )
+            counter_total=tf.get_variable(
+                name='counter_total',
+                initializer=1,
+                dtype=tf.int32,
+                trainable=False,
+                #collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                use_resource=True,
+                )
+            def update_counter_words(x,y):
+                indices=tf.stack([x,tf.tile(tf.reshape(y,[1]),[tf.size(x)])],axis=1)
+                counter_words_old=tf.gather_nd(counter_words_ccTLD,indices)
+                update_op1=tf.scatter_nd_update(counter_words_ccTLD,indices,counter_words_old+1)
+                update_op2=tf.assign_add(counter_total,tf.size(x))
+                with tf.control_dependencies([update_op1,update_op2]):
+                    return x
+            dataset = dataset.map(lambda x,y: (update_counter_words(x,y),y))
+
+        # convert lists of words into word pairs based on context
         SKIPGRAM_PAD=-2
         def sentence2skipgram_input(sentence):
             sentence_padded=tf.pad(
@@ -224,20 +300,18 @@ def input_fn_train(args):
             tf.data.Dataset.from_tensors(z).repeat(),
             )))
 
-        # remove unuseful data
+        # remove words with no pair due to sentence boundary
         dataset = dataset.filter(lambda x,y: tf.not_equal(x[0],SKIPGRAM_PAD))
         dataset = dataset.filter(lambda x,y: tf.not_equal(x[1],SKIPGRAM_PAD))
-        #dataset = dataset.filter(lambda x,y: tf.greater_equal(x[0],100))
-        #dataset = dataset.filter(lambda x,y: tf.greater_equal(x[1],100))
 
         # word counter variables
-        with tf.variable_scope('all_words'):
+        with tf.variable_scope('pair_counter'):
             counter_words=tf.get_variable(
                 name='counter_words',
                 initializer=tf.zeros([args.vocab_size],dtype=tf.int32),
                 dtype=tf.int32,
                 trainable=False,
-                collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                #collections=[tf.GraphKeys.LOCAL_VARIABLES],
                 use_resource=True,
                 )
             counter_total=tf.get_variable(
@@ -245,33 +319,42 @@ def input_fn_train(args):
                 initializer=1,
                 dtype=tf.int32,
                 trainable=False,
-                collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                #collections=[tf.GraphKeys.LOCAL_VARIABLES],
                 use_resource=True,
                 )
             counter_total_unfiltered=counter_total
             for p in [0,0.2,0.4,0.6,0.8]:
                 start=int(p*args.vocab_size)
                 end=int((p+0.2)*args.vocab_size)-1
-                word_percent=tf.reduce_mean(tf.cast(counter_words[start:end],tf.float32))/tf.cast(counter_total,tf.float32)
-                tf.summary.scalar('rank_%0.2f'%p,word_percent)
-            word_percent_unk=tf.cast(counter_words[args.vocab_size-1],tf.float32)/tf.cast(counter_total,tf.float32)
-            tf.summary.scalar('rank_UNK',word_percent_unk)
+                word_count=tf.reduce_mean(tf.cast(counter_words[start:end],tf.float32))
+                word_percent=word_count/tf.cast(counter_total,tf.float32)
+                tf.summary.scalar('rank_%0.2f_percent'%p,word_percent)
+            unk_count=tf.cast(counter_words[args.vocab_size-1],tf.float32)
+            unk_percent=unk_count/tf.cast(counter_total,tf.float32)
+            tf.summary.scalar('rank_UNK_percent',unk_percent)
             tf.summary.scalar('counter_total',counter_total)
             def update_counter_words(x):
                 update_op1=tf.scatter_update(counter_words,x[0],counter_words[x[0]]+1)
-                update_op2=tf.assign_add(counter_total,1)
-                with tf.control_dependencies([update_op1,update_op2]):
+                update_op2=tf.scatter_update(counter_words,x[1],counter_words[x[1]]+1)
+                update_op3=tf.assign_add(counter_total,2)
+                with tf.control_dependencies([update_op1,update_op2,update_op3]):
                     return x
-            dataset = dataset.map(lambda x,y: (update_counter_words(x),y))
+        dataset = dataset.map(lambda x,y: (update_counter_words(x),y))
+
+        # remove too common words
+        dataset = dataset.filter(lambda x,y: tf.greater_equal(x[0],100))
+        dataset = dataset.filter(lambda x,y: tf.greater_equal(x[1],100))
+        dataset = dataset.filter(lambda x,y: tf.less(x[0],args.vocab_size-1))
+        dataset = dataset.filter(lambda x,y: tf.less(x[1],args.vocab_size-1))
 
         # filter counter variables
-        with tf.variable_scope('filtered_words'):
+        with tf.variable_scope('pair_filtered'):
             filtered_words=tf.get_variable(
                 name='filtered_words',
                 initializer=tf.zeros([args.vocab_size],dtype=tf.int32),
                 dtype=tf.int32,
                 trainable=False,
-                collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                #collections=[tf.GraphKeys.LOCAL_VARIABLES],
                 use_resource=True,
                 )
             filtered_total=tf.get_variable(
@@ -279,34 +362,38 @@ def input_fn_train(args):
                 initializer=1,
                 dtype=tf.int32,
                 trainable=False,
-                collections=[tf.GraphKeys.LOCAL_VARIABLES],
+                #collections=[tf.GraphKeys.LOCAL_VARIABLES],
                 use_resource=True,
                 )
             for p in [0,0.2,0.4,0.6,0.8]:
                 start=int(p*args.vocab_size)
                 end=int((p+0.2)*args.vocab_size)-1
-                word_percent=tf.reduce_mean(tf.cast(filtered_words[start:end],tf.float32))/tf.cast(filtered_total,tf.float32)
-                tf.summary.scalar('rank_%0.2f_filtered'%p,word_percent)
-            word_percent_unk=tf.cast(filtered_words[args.vocab_size-1],tf.float32)/tf.cast(filtered_total,tf.float32)
-            tf.summary.scalar('rank_UNK',word_percent_unk)
+                word_count=tf.reduce_mean(tf.cast(filtered_words[start:end],tf.float32))
+                word_percent=word_count/tf.cast(filtered_total,tf.float32)
+                tf.summary.scalar('rank_%0.2f_percent'%p,word_percent)
+                #tf.summary.scalar('rank_%0.2f_count'%p,word_count)
+            unk_count=tf.cast(filtered_words[args.vocab_size-1],tf.float32)
+            unk_percent=unk_count/tf.cast(filtered_total,tf.float32)
+            filtered_percent=tf.cast(filtered_words,tf.float32)/tf.cast(filtered_total,tf.float32)
+            #tf.summary.scalar('rank_UNK_count',unk_count)
+            tf.summary.scalar('rank_UNK_percent',unk_percent)
             tf.summary.scalar('filtered_total',filtered_total)
             tf.summary.scalar('keep_frac',tf.cast(filtered_total,tf.float32)/tf.cast(counter_total,tf.float32))
             def rm_too_popular(x):
                 #t=1e-5
-                t=10.0/args.vocab_size
-                freq=tf.minimum(
+                t=20.0/args.vocab_size
+                freq=tf.maximum(
                     tf.cast(filtered_words[x[0]],tf.float32)/tf.cast(filtered_total,tf.float32),
                     tf.cast(filtered_words[x[1]],tf.float32)/tf.cast(filtered_total,tf.float32)
                     )
-                #p=(f-t)/f-tf.sqrt(t/f)
                 p=tf.sqrt(t/freq)
+                #p=tf.pow(t/freq,2.0)
                 rand=tf.random_uniform([1])[0]
 
                 def true_and_update():
-                    #update_op1=tf.scatter_add(filtered_words,x[0],1)
                     update_op1=tf.scatter_update(filtered_words,x[0],filtered_words[x[0]]+1)
                     update_op2=tf.scatter_update(filtered_words,x[1],filtered_words[x[1]]+1)
-                    update_op3=tf.assign_add(filtered_total,1)
+                    update_op3=tf.assign_add(filtered_total,2)
                     with tf.control_dependencies([update_op1,update_op2,update_op3]):
                         return True
                 #return tf.cond(tf.less_equal(freq,threshold),lambda:True,update_fn)
@@ -321,7 +408,7 @@ def input_fn_train(args):
         dataset = dataset.filter(lambda x,y: rm_too_popular(x))
 
         # prep for training
-        dataset = dataset.shuffle(args.shuffle_size)
+        dataset = dataset.shuffle(args.shuffle_size_3)
         dataset = dataset.batch(args.batch_size)
 
     # prefetch onto GPU
@@ -369,6 +456,8 @@ def model_fn_train(
 
     with tf.variable_scope('loss'):
         losses=[]
+        context_ccTLDs=[]
+        embed_ccTLDs=[]
         for ccTLD in range(num_ccTLD):
             indices=tf.where(tf.equal(labels[:],ccTLD))
             word_ccTLD=tf.gather(word,indices)[:,0]
@@ -378,21 +467,29 @@ def model_fn_train(
                 embeddings,
                 word_ccTLD,
                 )
-            embed=tf.tensordot(
+            embed_ccTLD=tf.tensordot(
                 embeddings_word,
                 embeddings_projector[:,ccTLD],
                 axes=[[2],[0]],
                 )
-            loss_per_dp = tf.nn.nce_loss(
-                weights=nce_weights[:,:],
-                biases=nce_biases[:],
-                labels=context_ccTLD,
-                inputs=embed,
-                num_sampled=min(args.nce_samples,args.vocab_size),
-                num_classes=args.vocab_size,
-                )
-            losses.append(loss_per_dp)
-        loss=tf.reduce_sum(map(tf.reduce_sum,losses))/args.batch_size
+            context_ccTLDs.append(context_ccTLD)
+            embed_ccTLDs.append(embed_ccTLD)
+
+        context_final=tf.concat(context_ccTLDs,axis=0)
+        embed_final=tf.concat(embed_ccTLDs,axis=0)
+
+        loss_per_dp = tf.nn.nce_loss(
+            weights=nce_weights[:,:],
+            biases=nce_biases[:],
+            labels=context_final,
+            inputs=embed_final,
+            num_sampled=min(args.nce_samples,args.vocab_size),
+            num_classes=args.vocab_size,
+            )
+        loss=tf.reduce_mean(loss_per_dp)
+        #losses.append(loss_per_dp)
+        #loss=tf.reduce_sum(map(tf.reduce_sum,losses))/args.batch_size
+        #loss=tf.reduce_sum(losses[0]) #tf.reduce_sum(map(tf.reduce_sum,losses))/args.batch_size
 
     with tf.variable_scope('regularization'):
         indices=tf.random_uniform(
@@ -411,30 +508,21 @@ def model_fn_train(
             embeddings_sample,
             axis=2,
             )
+        embeddings_sample_mean_reshape=tf.expand_dims(embeddings_sample_mean,axis=-1)
+        embeddings_sample_diff=embeddings_sample_mean_reshape-embeddings_sample
 
-        regs=[]
-        for i in range(args.num_embeddings):
-            embeddings_i=embeddings_sample[:,:,i]
-            diff=embeddings_sample_mean-embeddings_i
+        embeddings_diff_cos = tf.reduce_sum(
+            tf.nn.l2_normalize(embeddings_sample_mean_reshape,axis=1)*
+            tf.nn.l2_normalize(embeddings_sample_diff,axis=1),
+            axis=1,
+            )
 
-            if args.reg_l2_diff > 0:
-                regs.append(args.reg_l2_diff*tf.reduce_sum(diff*diff))
+        embeddings_l1=tf.reduce_sum(embeddings_diff_cos)
 
-            if args.reg_l1_diff > 0:
-                regs.append(args.reg_l1_diff*tf.reduce_sum(tf.abs(diff)))
-
-        null_pt=tf.concat([
-            tf.ones([1]),
-            tf.zeros([args.embedding_size-1]),
-            ],axis=0)
-        mean_reg_pt=embeddings_sample_mean-null_pt
-        if args.reg_l2_mean > 0:
-            regs.append(args.reg_l2_mean*tf.reduce_sum(mean_reg_pt*mean_reg_pt))
-
-        if args.reg_l1_mean > 0:
-            regs.append(args.reg_l1_mean*tf.reduce_sum(tf.abs(mean_reg_pt)))
-
-        reg=tf.reduce_mean(regs)
+        if args.reg>0:
+            reg=-args.reg*embeddings_l1
+        else:
+            reg=0.0
 
     loss_regularized=loss+reg
 
@@ -451,7 +539,7 @@ def model_fn_train(
             #[1.0,1e-1,1e-2,1e-3],
             #)
         #optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate) #1e-2)
-        learning_rate=5e-4
+        learning_rate=args.learning_rate
         optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
         #optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
         train_op = optimizer.minimize(loss_regularized, global_step=tf.train.get_global_step())

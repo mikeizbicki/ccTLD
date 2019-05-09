@@ -38,10 +38,11 @@ for x in xs:
     print('word=',x['words'])
     translation=x['translation']
     scores=x['translation_scores']
+    word_count=x['translation_word_count']
     for i in range(len(common.ccTLDs)):
         print('%s: '%common.ccTLDs[i],end='')
         for j in range(translation.shape[0]):
-            print('%10s (%0.2f) '%(translation[j,i],scores[j,i]),end=' ')
+            print('%10s (%0.2f %3d) '%(translation[j,i],scores[j,i],word_count[j,i]),end=' ')
         print()
     print()
     print()

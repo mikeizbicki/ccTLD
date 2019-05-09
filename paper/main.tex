@@ -1,24 +1,26 @@
-\documentclass[10pt]{article}
+\documentclass[runningheads]{llncs}
 
-\usepackage[margin=0.75in]{geometry}
 %\usepackage{geometry}
 \usepackage{multirow}
-\usepackage{colortbl}
 \usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{amsthm}
-\usepackage{mathtools}
-\usepackage{graphicx}
-\usepackage{rotating}
+%\usepackage{amsthm}
 \usepackage{xcolor}
+\usepackage{graphicx}
 \usepackage[utf8]{inputenc}
-\usepackage[greek,vietnamese,russian,arabic,english]{babel}
-\usepackage{CJKutf8}
-\usepackage{bm}
-\usepackage{wrapfig}
+\usepackage{siunitx}
 
-\usepackage{natbib}
-\setlength{\bibsep}{1.0pt}
+\usepackage[numbers]{natbib}
+\renewcommand\bibsection{\section*{\refname}\small\renewcommand\bibnumfmt[1]{##1.}}
+
+\usepackage{colortbl}
+\usepackage{array}
+\newcommand{\PreserveBackslash}[1]{\let\temp=\\#1\let\\=\temp}
+\newcolumntype{C}[1]{>{\PreserveBackslash\centering}p{#1}}
+\newcolumntype{R}[1]{>{\PreserveBackslash\raggedleft}p{#1}}
+\newcolumntype{L}[1]{>{\PreserveBackslash\raggedright}p{#1}}
+\newcommand\Tstrut{\rule{0pt}{2.6ex}}         % = `top' strut
+\newcommand\Bstrut{\rule[-0.9ex]{0pt}{0pt}}   % = `bottom' strut
 
 \usepackage{hyperref}
 \hypersetup{
@@ -28,12 +30,120 @@
   citecolor    = blue  %Colour of citations
 }
 
-\usepackage{kotex}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\escrawl}{\texttt{SpanishCrawl}}
+
+\newcommand{\defn}[1]{\emph{#1}}
+
+\newcommand{\fixme}[1]{\textbf{FIXME:} #1}
+\newcommand{\ignore}[1]{}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
 
+\title{Translating Words between 25 Spanish Dialects}
+%
+%\titlerunning{Abbreviated paper title}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\author{Author blinded for peer review}
+%
+%\authorrunning{Blinded for peer review}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{Institute blinded for peer review}
+%
+\maketitle              % typeset the header of the contribution
+
+\begin{abstract}
+Word vectors have become one of the most important techniques in natural language processing since Mikolov et.\ al.\ introduced the skipgram model in 2013.
+To train our model, we introduce the \escrawl\ dataset,
+which contains 2.4 billion words labeled with 25 different Spanish dialects.
+
+\keywords{word vectors \and tensor decompositions \and machine translation.}
+\end{abstract}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+
+Spanish is spoken in dozens of countries around the world
+%More people speak Spanish as their native language than any other language except Chinese.
+
+The largest previously existing dataset of Spanish language text is Spanish Billion Word Corpus \citep{cardellino2016billion}.
+This dataset is not suitable for out purposes because the text is not labelled by dialect.
+\defn{country-code top level domain} (ccTLD)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{The \escrawl~Dataset}
+
+The \escrawl\ corpus contains 2.4 billion natural language Spanish words gathered from 33 million web pages across 19 thousand domains.
+Each sentence in the corpus is labeled with a country-of-origin according to the \defn{country-code top level domain} (ccTLD).
+Each country is assigned a unique ccTLD by the Internet Assigned Numbers Authority (IANA),
+and that country has the authority to determine which web pages can be hosted under its ccTLD.
+We assume that the Spanish text hosted under a country's ccTLD is linguistically representative of the dialectical Spanish used in that country.
+For example, the Cuban newspaper \emph{Granma} hosts their website at \url{www.granma.cu};
+this newspaper writes for Cubans in the Cuban dialect and has the Cuban ccTLD \url{cu}.
+
+\subsection{Comparison to Other Corpora}
+
+\subsection{Construction Methodology}
+
+%For example, the newspaper \emph{Granma} has the domain name \url{www.granma.cu}
+%and the newspaper \emph{La Jornada} has the domain name \url{www.jornada.com.mx}.
+%We can use the ccTLDs of these domains to correctly infer that the Spanish text in \emph{Granma} is of the Cuban dialect whereas the Spanish text in \emph{La Jornada} is written in the Mexican dialect.
+%This method cannot find all Spanish language dialectical text online.
+%For example, the Mexican newspaper \emph{Prensa Escrita} has domain name \url{www.prensaescrita.com},
+%which is not associated with any ccTLD,
+%and so our method will ignore this potential information source.
+
+We identified 38 ccTLDs as candidates for crawling.
+The list contains all countries with Spanish as their official language (plus Puerto Rico),
+all countries in the mainland Americas and C
+
+We use Google to generate seed URLs for the crawl that contain a mixture of newspaper, university, and government websites.
+For each ccTLD, we perform the following three searches:
+\begin{verbatim}
+    site:.ccTLD noticias
+    site:.ccTLD universidad
+    site:.ccTLD gobierno
+\end{verbatim}
+where \texttt{ccTLD} is replaced by the actual ccTLD.
+The \texttt{site:} operator ensures that Google only returns results from the appropriate ccTLD.
+The seed URLs for that ccTLD are then the top 500 results for each search query.
+
+We performed a crawl for each ccTLD separately on their own machines using Python's \texttt{scrapy} web crawler.
+For each page in the crawl, we use the \texttt{langdetect} library to identify the page's language.
+For web
+Many of the domains we crawled have translations from Spanish into English or other languages,
+and to
+If the webpage is written in Spanish,
+we add the text to our dataset and recursively crawl all referenced links.
+Many Spanish webpages have versions translated into English and other languages,
+and to avoid wasting time crawling these non-Spanish webpages,
+we do not follow links for non-Spanish pages.
+We let these crawlers run for 3 weeks.
+
+we used the \texttt{Goose3} library to extract the article's text content from the HTML.
+\texttt{Goose3} uses a sophisticated algorithm to ensure that irrelevant HTML content such as navigation bars do not get included in the returned text,
+and thus the returned text is of high quality.
+
+\begin{table}
+\center
+\include{table/data_summary}
+\vspace{0.1in}
+\caption{Summary of the \escrawl~dataset.}
+\label{table:escrawl}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\ignore{
 \citet{conneau2017word} propose word embeddings without parallel data,
 and \citet{lample2017unsupervised} use these embeddings to perform fully unsupervised language translation.
 We propose using the $\ell1$ \fixme{oblique?} procrustes problem \citep{trendafilov2003ell,trendafilov2004ell}.
@@ -65,6 +175,7 @@ VarDial Workshop
 \citet{zbib2012machine} create parallel corpora for Egyptian-Arabic to English and Levantine-Arabic to English,
 and study how dialectical differences in Arabic can affect Arabic to English translation.
 \fixme{View citations on google scholar for more Arabic.}
+}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \small
